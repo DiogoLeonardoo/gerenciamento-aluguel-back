@@ -79,6 +79,7 @@ public class Casa {
         info.put("listaFotos", "/api/fotos/lista/casa/" + id);
         info.put("fotoPrincipal", "/api/fotos/casa/" + id + "/principal");
         info.put("uploadFoto", "/api/fotos/upload/casa/" + id);
+        info.put("uploadMultiplasFotos", "/api/fotos/upload/multiplas/casa/" + id);
         
         return info;
     }
