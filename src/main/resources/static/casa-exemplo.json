@@ -1,0 +1,12 @@
+{
+  "nome": "Casa de Praia em Florianópolis",
+  "descricao": "Linda casa de praia com vista para o mar, próxima à Praia dos Ingleses",
+  "endereco": "Rua das Gaivotas, 123",
+  "cidade": "Florianópolis",
+  "estado": "SC",
+  "cep": "88058-200",
+  "quartos": 3,
+  "banheiros": 2,
+  "maxPessoas": 8,
+  "valorDiaria": 350.00
+}
