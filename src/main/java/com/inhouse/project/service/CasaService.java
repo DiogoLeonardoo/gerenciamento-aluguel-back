@@ -97,8 +97,21 @@ public class CasaService {
         Casa casaSalva = casaRepository.save(casa);
 
         if (dto.getFotos() != null && !dto.getFotos().isEmpty()) {
-            dto.getFotos().forEach(file -> {
+            // Verificar se há mais de 10 fotos
+            if (dto.getFotos().size() > 10) {
+                throw new BusinessException("Não é permitido adicionar mais de 10 fotos por casa. Você enviou " + dto.getFotos().size() + " fotos.");
+            }
+            
+            // Contador de fotos processadas
+            int fotosProcessadas = 0;
+            
+            for (var file : dto.getFotos()) {
                 if (file != null && !file.isEmpty()) {
+                    if (fotosProcessadas >= 10) {
+                        log.warn("Limite de 10 fotos atingido para a casa ID: {}. Fotos excedentes ignoradas.", casaSalva.getId());
+                        break;
+                    }
+                    
                     FotoCasa foto = new FotoCasa();
                     foto.setCasa(casaSalva);
                     try {
@@ -107,10 +120,16 @@ public class CasaService {
                         throw new BusinessException("Erro ao ler arquivo: " + file.getOriginalFilename());
                     }
                     foto.setNomeArquivo(file.getOriginalFilename());
-                    foto.setPrincipal(false);
+                    foto.setContentType(file.getContentType());
+                    foto.setTamanho(file.getSize());
+                    
+                    // A primeira foto é marcada como principal
+                    foto.setPrincipal(fotosProcessadas == 0);
+                    
                     fotoCasaRepository.save(foto);
+                    fotosProcessadas++;
                 }
-            });
+            }
         }
 
         return casaSalva;
