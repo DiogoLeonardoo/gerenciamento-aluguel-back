@@ -21,7 +21,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/casas")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class CasaResource {
 
     private final CasaService casaService;
