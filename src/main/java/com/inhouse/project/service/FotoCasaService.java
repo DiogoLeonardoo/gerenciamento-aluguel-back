@@ -2,6 +2,7 @@ package com.inhouse.project.service;
 
 import com.inhouse.project.domain.Casa;
 import com.inhouse.project.domain.FotoCasa;
+import com.inhouse.project.exceptions.BusinessException;
 import com.inhouse.project.exceptions.ResourceNotFoundException;
 import com.inhouse.project.repository.CasaRepository;
 import com.inhouse.project.repository.FotoCasaRepository;
@@ -23,6 +24,21 @@ public class FotoCasaService {
     private final CasaRepository casaRepository;
 
     /**
+     * Verifica se a casa já atingiu o limite de fotos (10)
+     * 
+     * @param casaId ID da casa
+     * @return true se o limite foi atingido, false caso contrário
+     */
+    public boolean verificarLimiteFotos(Long casaId) {
+        Casa casa = casaRepository.findById(casaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Casa não encontrada com o ID: " + casaId));
+        
+        // Contar fotos existentes
+        List<FotoCasa> fotos = fotoCasaRepository.findByCasa(casa);
+        return fotos.size() >= 10;
+    }
+    
+    /**
      * Salva uma nova foto para uma casa específica
      * 
      * @param casaId ID da casa
@@ -35,6 +51,11 @@ public class FotoCasaService {
         Casa casa = casaRepository.findById(casaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Casa não encontrada com o ID: " + casaId));
         
+        // Verificar se a casa já tem 10 fotos
+        if (verificarLimiteFotos(casaId)) {
+            throw new BusinessException("Limite de 10 fotos por casa atingido. Não é possível adicionar mais fotos.");
+        }
+        
         FotoCasa foto = new FotoCasa();
         foto.setCasa(casa);
         foto.setNomeArquivo(file.getOriginalFilename());
@@ -42,6 +63,14 @@ public class FotoCasaService {
         foto.setContentType(file.getContentType());
         foto.setTamanho(file.getSize());
         foto.setConteudoArquivo(file.getBytes());
+        
+        // Se for a primeira foto da casa, definir como principal
+        List<FotoCasa> fotos = fotoCasaRepository.findByCasa(casa);
+        if (fotos.isEmpty()) {
+            foto.setPrincipal(true);
+        } else {
+            foto.setPrincipal(false);
+        }
         
         return fotoCasaRepository.save(foto);
     }
@@ -83,5 +112,30 @@ public class FotoCasaService {
             throw new ResourceNotFoundException("Foto não encontrada com o ID: " + id);
         }
         fotoCasaRepository.deleteById(id);
+    }
+    
+    /**
+     * Marca uma foto como principal para uma casa
+     * 
+     * @param fotoId ID da foto a ser marcada como principal
+     * @return A foto atualizada
+     */
+    @Transactional
+    public FotoCasa marcarComoPrincipal(Long fotoId) {
+        FotoCasa foto = getFotoById(fotoId);
+        Casa casa = foto.getCasa();
+        
+        // Remover o status de principal de todas as outras fotos da casa
+        List<FotoCasa> fotos = fotoCasaRepository.findByCasa(casa);
+        for (FotoCasa f : fotos) {
+            if (f.getPrincipal() != null && f.getPrincipal()) {
+                f.setPrincipal(false);
+                fotoCasaRepository.save(f);
+            }
+        }
+        
+        // Marcar a foto atual como principal
+        foto.setPrincipal(true);
+        return fotoCasaRepository.save(foto);
     }
 }

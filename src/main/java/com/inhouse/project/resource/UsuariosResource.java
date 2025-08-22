@@ -3,6 +3,8 @@ package com.inhouse.project.resource;
 import com.inhouse.project.service.UsuarioService;
 import com.inhouse.project.service.dto.UsuarioRegisterDTO;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -16,6 +18,7 @@ public class UsuariosResource {
 
     private final UsuarioService usuarioService;
 
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public List<UsuarioRegisterDTO> getTodosUsuarios() {
         return usuarioService.listarTodosUsuarios();

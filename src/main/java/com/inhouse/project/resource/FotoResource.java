@@ -1,6 +1,7 @@
 package com.inhouse.project.resource;
 
 import com.inhouse.project.domain.FotoCasa;
+import com.inhouse.project.exceptions.BusinessException;
 import com.inhouse.project.exceptions.ResourceNotFoundException;
 import com.inhouse.project.service.FotoCasaService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +45,93 @@ public class FotoResource {
         response.put("url", "/api/fotos/" + foto.getId());
         
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+    
+    @PostMapping("/upload/multiplas/casa/{casaId}")
+    @Operation(summary = "Faz upload de múltiplas fotos (até 10) para uma casa específica")
+    public ResponseEntity<Map<String, Object>> uploadMultiplasFotos(
+            @PathVariable Long casaId,
+            @RequestParam("files") MultipartFile[] files) throws IOException {
+        
+        // Validar o número máximo de arquivos na requisição
+        if (files.length > 10) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("erro", "O número máximo de fotos por upload é 10");
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+        
+        // Verificar se já existe o limite máximo de fotos para esta casa
+        try {
+            // Obter o número atual de fotos
+            List<FotoCasa> fotosExistentes = fotoCasaService.getFotosByCasaId(casaId);
+            int fotosAtuais = fotosExistentes.size();
+            int fotosRestantes = 10 - fotosAtuais;
+            
+            if (fotosRestantes <= 0) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("erro", "Esta casa já atingiu o limite máximo de 10 fotos");
+                errorResponse.put("totalFotos", fotosAtuais);
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+            
+            // Se o número de arquivos enviados excede o limite restante
+            if (files.length > fotosRestantes) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("aviso", "Apenas " + fotosRestantes + " fotos serão processadas devido ao limite máximo de 10 fotos por casa");
+                errorResponse.put("fotosAtuais", fotosAtuais);
+                errorResponse.put("fotosRestantes", fotosRestantes);
+                log.warn("Casa ID {} já possui {} fotos. Apenas {} serão processadas neste upload.", 
+                         casaId, fotosAtuais, fotosRestantes);
+            }
+            
+            List<Map<String, Object>> fotosResponse = new ArrayList<>();
+            int fotosProcessadas = 0;
+            
+            // Processar cada arquivo, até o limite restante
+            for (MultipartFile file : files) {
+                if (fotosProcessadas >= fotosRestantes) {
+                    break;
+                }
+                
+                if (!file.isEmpty()) {
+                    try {
+                        FotoCasa foto = fotoCasaService.salvarFoto(casaId, file);
+                        
+                        Map<String, Object> fotoInfo = new HashMap<>();
+                        fotoInfo.put("id", foto.getId());
+                        fotoInfo.put("nome", foto.getNomeArquivo());
+                        fotoInfo.put("url", "/api/fotos/" + foto.getId());
+                        
+                        fotosResponse.add(fotoInfo);
+                        fotosProcessadas++;
+                    } catch (IOException e) {
+                        log.error("Erro ao fazer upload do arquivo: " + file.getOriginalFilename(), e);
+                    } catch (BusinessException e) {
+                        // Se o limite foi atingido durante o processamento
+                        log.warn("Limite atingido durante o processamento: {}", e.getMessage());
+                        break;
+                    }
+                }
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("totalProcessado", fotosResponse.size());
+            response.put("fotos", fotosResponse);
+            response.put("totalAtual", fotosAtuais + fotosResponse.size());
+            response.put("limiteMaximo", 10);
+            response.put("fotosRestantes", 10 - (fotosAtuais + fotosResponse.size()));
+            
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (ResourceNotFoundException e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("erro", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        } catch (Exception e) {
+            log.error("Erro ao processar fotos para casa ID {}: {}", casaId, e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("erro", "Erro ao processar fotos: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
     }
 
     @GetMapping("/{id}")
@@ -74,6 +163,10 @@ public class FotoResource {
         // Criar cabeçalhos
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType(contentType));
+        headers.setContentDisposition(org.springframework.http.ContentDisposition
+            .builder("inline")
+            .filename(foto.getNomeArquivo())
+            .build());
         
         // Adicionar Cache-Control
         headers.setCacheControl("max-age=86400"); // 1 dia de cache
@@ -110,6 +203,10 @@ public class FotoResource {
         // Criar cabeçalhos
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType(contentType));
+        headers.setContentDisposition(org.springframework.http.ContentDisposition
+            .builder("inline")
+            .filename(fotoPrincipal.getNomeArquivo())
+            .build());
         headers.setCacheControl("max-age=86400"); // 1 dia de cache
         
         // Retornar a resposta
@@ -121,28 +218,53 @@ public class FotoResource {
      */
     @GetMapping("/lista/casa/{casaId}")
     @Operation(summary = "Lista todas as fotos de uma casa")
-    public ResponseEntity<List<FotoInfoDTO>> listarFotosDaCasa(@PathVariable Long casaId) {
-        // Buscar todas as fotos da casa
-        List<FotoCasa> fotos = fotoCasaService.getFotosByCasaId(casaId);
-        
-        if (fotos.isEmpty()) {
-            throw new ResourceNotFoundException("Nenhuma foto encontrada para a casa com ID: " + casaId);
+    public ResponseEntity<?> listarFotosDaCasa(@PathVariable Long casaId) {
+        try {
+            // Buscar todas as fotos da casa
+            List<FotoCasa> fotos = fotoCasaService.getFotosByCasaId(casaId);
+            
+            if (fotos.isEmpty()) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("mensagem", "Esta casa não possui fotos cadastradas");
+                response.put("casaId", casaId);
+                return ResponseEntity.ok(response);
+            }
+            
+            // Identificar a foto principal
+            FotoCasa fotoPrincipal = fotos.stream()
+                .filter(f -> Boolean.TRUE.equals(f.getPrincipal()))
+                .findFirst()
+                .orElse(fotos.get(0));
+            
+            // Converter para DTOs para evitar serialização de dados binários
+            List<FotoInfoDTO> fotosInfo = fotos.stream()
+                .map(foto -> new FotoInfoDTO(
+                    foto.getId(),
+                    foto.getNomeArquivo(),
+                    foto.getDescricao(),
+                    foto.getPrincipal(),
+                    "/api/fotos/" + foto.getId(),
+                    foto.getContentType(),
+                    foto.getTamanho()
+                ))
+                .collect(java.util.stream.Collectors.toList());
+            
+            // Criar resposta estruturada
+            Map<String, Object> response = new HashMap<>();
+            response.put("casaId", casaId);
+            response.put("totalFotos", fotos.size());
+            response.put("fotoPrincipalId", fotoPrincipal.getId());
+            response.put("fotoPrincipalUrl", "/api/fotos/" + fotoPrincipal.getId());
+            response.put("fotos", fotosInfo);
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Erro ao buscar fotos da casa: " + casaId, e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("erro", "Erro ao buscar fotos da casa");
+            errorResponse.put("mensagem", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
-        
-        // Converter para DTOs para evitar serialização de dados binários
-        List<FotoInfoDTO> fotosInfo = fotos.stream()
-            .map(foto -> new FotoInfoDTO(
-                foto.getId(),
-                foto.getNomeArquivo(),
-                foto.getDescricao(),
-                foto.getPrincipal(),
-                "/api/fotos/" + foto.getId(),
-                foto.getContentType(),
-                foto.getTamanho()
-            ))
-            .collect(java.util.stream.Collectors.toList());
-        
-        return ResponseEntity.ok(fotosInfo);
     }
     
     @DeleteMapping("/{id}")
@@ -150,6 +272,19 @@ public class FotoResource {
     public ResponseEntity<Void> deleteFoto(@PathVariable Long id) {
         fotoCasaService.deleteFoto(id);
         return ResponseEntity.noContent().build();
+    }
+    
+    @PutMapping("/{id}/principal")
+    @Operation(summary = "Define uma foto como a principal da casa")
+    public ResponseEntity<Map<String, Object>> marcarFotoComoPrincipal(@PathVariable Long id) {
+        FotoCasa foto = fotoCasaService.marcarComoPrincipal(id);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("mensagem", "Foto definida como principal com sucesso");
+        response.put("id", foto.getId());
+        response.put("casaId", foto.getCasa().getId());
+        
+        return ResponseEntity.ok(response);
     }
     
     /**
