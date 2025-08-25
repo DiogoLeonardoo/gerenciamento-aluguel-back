@@ -18,7 +18,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/inventario")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Slf4j
 public class InventarioCasaResource {
 

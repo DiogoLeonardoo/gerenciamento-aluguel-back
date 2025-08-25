@@ -1,13 +1,14 @@
 package com.inhouse.project.service;
 
+import com.inhouse.project.domain.Proprietario;
 import com.inhouse.project.domain.Reserva;
+import com.inhouse.project.domain.Usuarios;
 import com.inhouse.project.exceptions.BusinessException;
 import com.inhouse.project.exceptions.ResourceNotFoundException;
 import com.inhouse.project.repository.ReservaRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -25,6 +26,7 @@ public class ReservaService {
     private final CasaService casaService;
     private final HospedeService hospedeService;
     private final ContratoHelper contratoHelper;
+    private final UsuarioService usuarioService;
 
     public List<Reserva> listarTodas() {
         return reservaRepository.findAll();
@@ -37,6 +39,22 @@ public class ReservaService {
 
     public Reserva criarReserva(Reserva reserva) {
         validarReserva(reserva);
+        
+        // Verificar se o usuário logado é o proprietário da casa
+        Usuarios usuarioLogado = usuarioService.getUsuarioLogado();
+        
+        if (usuarioLogado.getRole() != Usuarios.Role.PROPRIETARIO) {
+            throw new BusinessException("Apenas proprietários podem realizar reservas");
+        }
+        
+        // Obter o proprietário do usuário logado
+        Proprietario proprietarioLogado = usuarioService.getProprietarioDoUsuario(usuarioLogado.getId());
+        
+        // Verificar se a casa pertence ao proprietário logado
+        if (reserva.getCasa().getProprietario() == null || 
+            !reserva.getCasa().getProprietario().getId().equals(proprietarioLogado.getId())) {
+            throw new BusinessException("Você só pode realizar reservas para suas próprias casas");
+        }
 
         // Verificar disponibilidade da casa
         if (reservaRepository.existeReservaNoPeriodo(reserva.getCasa().getId(),
@@ -190,5 +208,60 @@ public class ReservaService {
             throw new BusinessException("Número de hóspedes não pode ser maior que o número de pessoas da reserva");
         }
     }
-
+    
+    /**
+     * Verifica se uma casa está disponível para o período especificado
+     * Este é um endpoint público que pode ser acessado sem autenticação.
+     * 
+     * @param casaId ID da casa
+     * @param dataInicio Data de início do período
+     * @param dataFim Data de fim do período
+     * @return true se a casa estiver disponível, false caso contrário
+     */
+    public boolean verificarDisponibilidade(Long casaId, LocalDate dataInicio, LocalDate dataFim) {
+        try {
+            // Verificações básicas
+            if (casaId == null || dataInicio == null || dataFim == null) {
+                return false;
+            }
+            
+            // Validações de período
+            if (dataInicio.isBefore(LocalDate.now())) {
+                return false;
+            }
+            
+            if (dataFim.isBefore(dataInicio) || dataFim.isEqual(dataInicio)) {
+                return false;
+            }
+            
+            try {
+                // Verifica se a casa existe silenciosamente
+                casaService.buscarPorId(casaId);
+            } catch (ResourceNotFoundException e) {
+                // Se a casa não existir, consideramos que não está disponível
+                log.debug("Casa não encontrada ao verificar disponibilidade: {}", casaId);
+                return false;
+            }
+        
+            // Verifica se não há reservas confirmadas ou em check-in para o período
+            List<Reserva> reservasExistentes = reservaRepository.findByCasaIdAndStatusIn(
+                casaId,
+                List.of(Reserva.StatusReserva.CONFIRMADA, Reserva.StatusReserva.CHECKIN)
+            );
+            
+            // Verifica se alguma reserva existente se sobrepõe ao período solicitado
+            for (Reserva reserva : reservasExistentes) {
+                // Verifica sobreposição de datas
+                if ((dataInicio.isBefore(reserva.getDataCheckout()) || dataInicio.isEqual(reserva.getDataCheckout())) &&
+                    (dataFim.isAfter(reserva.getDataCheckin()) || dataFim.isEqual(reserva.getDataCheckin()))) {
+                    return false;
+                }
+            }
+            
+            return true;
+        } catch (Exception e) {
+            log.error("Erro ao verificar disponibilidade da casa {}: {}", casaId, e.getMessage());
+            return false;
+        }
+    }
 }

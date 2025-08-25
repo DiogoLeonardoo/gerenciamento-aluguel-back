@@ -42,4 +42,6 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
     @Query("SELECT r FROM Reserva r WHERE r.status = 'CONFIRMADA' " +
             "AND r.dataCheckin <= :dataLimite")
     List<Reserva> findReservasVencendoCheckin(@Param("dataLimite") LocalDate dataLimite);
+    
+    List<Reserva> findByCasaIdAndStatusIn(Long casaId, List<Reserva.StatusReserva> status);
 }

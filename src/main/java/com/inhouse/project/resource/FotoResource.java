@@ -25,7 +25,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/fotos")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Slf4j
 public class FotoResource {
 
@@ -236,17 +235,20 @@ public class FotoResource {
                 .findFirst()
                 .orElse(fotos.get(0));
             
-            // Converter para DTOs para evitar serialização de dados binários
+            // Converter para DTOs incluindo dados codificados em Base64
             List<FotoInfoDTO> fotosInfo = fotos.stream()
-                .map(foto -> new FotoInfoDTO(
-                    foto.getId(),
-                    foto.getNomeArquivo(),
-                    foto.getDescricao(),
-                    foto.getPrincipal(),
-                    "/api/fotos/" + foto.getId(),
-                    foto.getContentType(),
-                    foto.getTamanho()
-                ))
+                .map(foto -> {
+                    String base64Data = java.util.Base64.getEncoder().encodeToString(foto.getConteudoArquivo());
+                    return new FotoInfoDTO(
+                        foto.getId(),
+                        foto.getNomeArquivo(),
+                        foto.getDescricao(),
+                        foto.getPrincipal(),
+                        "data:" + foto.getContentType() + ";base64," + base64Data,
+                        foto.getContentType(),
+                        foto.getTamanho()
+                    );
+                })
                 .collect(java.util.stream.Collectors.toList());
             
             // Criar resposta estruturada
@@ -254,7 +256,8 @@ public class FotoResource {
             response.put("casaId", casaId);
             response.put("totalFotos", fotos.size());
             response.put("fotoPrincipalId", fotoPrincipal.getId());
-            response.put("fotoPrincipalUrl", "/api/fotos/" + fotoPrincipal.getId());
+            response.put("fotoPrincipalData", "data:" + fotoPrincipal.getContentType() + ";base64," + 
+                         java.util.Base64.getEncoder().encodeToString(fotoPrincipal.getConteudoArquivo()));
             response.put("fotos", fotosInfo);
             
             return ResponseEntity.ok(response);
@@ -297,7 +300,7 @@ public class FotoResource {
         private String nomeArquivo;
         private String descricao;
         private Boolean principal;
-        private String url;
+        private String dataUrl; // Mudado de url para dataUrl - contém os dados codificados em Base64 com o formato data:image/jpeg;base64,...
         private String contentType;
         private Long tamanho;
     }
