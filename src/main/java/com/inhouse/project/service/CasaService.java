@@ -188,6 +188,12 @@ public class CasaService {
         log.info("Casa inativada com sucesso: {}", casa.getNome());
     }
 
+      @Transactional
+        public void ativar(Long id) {
+            Casa casa = buscarPorId(id);
+            casa.setAtiva(true);
+        }
+
     public List<Casa> buscarCasasDisponiveis(LocalDate checkin, LocalDate checkout,
                                              String cidade, Integer pessoas,
                                              BigDecimal minValor, BigDecimal maxValor) {
