@@ -42,17 +42,30 @@ public class ReservaService {
         
         // Verificar se o usuário logado é o proprietário da casa
         Usuarios usuarioLogado = usuarioService.getUsuarioLogado();
+        log.info("Usuário {} (ID: {}, Role: {}) tentando criar reserva", 
+                 usuarioLogado.getEmail(), usuarioLogado.getId(), usuarioLogado.getRole());
         
         if (usuarioLogado.getRole() != Usuarios.Role.PROPRIETARIO) {
+            log.warn("Tentativa de criar reserva por usuário não-proprietário: {}", usuarioLogado.getEmail());
             throw new BusinessException("Apenas proprietários podem realizar reservas");
         }
         
         // Obter o proprietário do usuário logado
         Proprietario proprietarioLogado = usuarioService.getProprietarioDoUsuario(usuarioLogado.getId());
+        log.info("Proprietário ID: {} vinculado ao usuário ID: {}", 
+                 proprietarioLogado.getId(), usuarioLogado.getId());
         
         // Verificar se a casa pertence ao proprietário logado
-        if (reserva.getCasa().getProprietario() == null || 
-            !reserva.getCasa().getProprietario().getId().equals(proprietarioLogado.getId())) {
+        if (reserva.getCasa().getProprietario() == null) {
+            log.warn("Casa ID: {} não tem proprietário definido", reserva.getCasa().getId());
+            throw new BusinessException("Esta casa não possui um proprietário válido");
+        }
+        
+        if (!reserva.getCasa().getProprietario().getId().equals(proprietarioLogado.getId())) {
+            log.warn("Usuário {} (proprietário ID: {}) tentando criar reserva para casa ID: {} " +
+                     "que pertence ao proprietário ID: {}", 
+                     usuarioLogado.getEmail(), proprietarioLogado.getId(), 
+                     reserva.getCasa().getId(), reserva.getCasa().getProprietario().getId());
             throw new BusinessException("Você só pode realizar reservas para suas próprias casas");
         }
 
@@ -105,17 +118,15 @@ public class ReservaService {
     public Reserva realizarCheckin(Long id) {
         Reserva reserva = buscarPorId(id);
 
+        // Verificar permissão do usuário
+        verificarPermissaoParaOperarReserva(reserva);
+
         if (reserva.getStatus() != Reserva.StatusReserva.CONFIRMADA) {
             throw new BusinessException("Apenas reservas confirmadas podem fazer check-in");
         }
 
         if (reserva.getDataCheckin().isAfter(LocalDate.now())) {
             throw new BusinessException("Data de check-in ainda não chegou");
-        }
-
-        // Verificar se o pagamento foi realizado (regra de negócio)
-        if (reserva.getValorPago().compareTo(reserva.getValorTotal()) < 0) {
-            throw new BusinessException("Pagamento deve estar completo para realizar check-in");
         }
 
         reserva.setStatus(Reserva.StatusReserva.CHECKIN);
@@ -142,14 +153,6 @@ public class ReservaService {
 
         if (reserva.getStatus() == Reserva.StatusReserva.CHECKIN) {
             throw new BusinessException("Não é possível cancelar reserva com check-in já realizado");
-        }
-
-        // Política de cancelamento: até 7 dias antes sem multa
-        long diasAteCheckin = ChronoUnit.DAYS.between(LocalDate.now(), reserva.getDataCheckin());
-        if (diasAteCheckin < 7 && reserva.getValorPago().compareTo(BigDecimal.ZERO) > 0) {
-            // Aplicar multa de 20%
-            BigDecimal multa = reserva.getValorPago().multiply(BigDecimal.valueOf(0.2));
-            log.info("Multa aplicada por cancelamento: R$ {} - Reserva ID: {}", multa, id);
         }
 
         reserva.setStatus(Reserva.StatusReserva.CANCELADA);
@@ -263,5 +266,46 @@ public class ReservaService {
             log.error("Erro ao verificar disponibilidade da casa {}: {}", casaId, e.getMessage());
             return false;
         }
+    }
+    
+    /**
+     * Verifica se o usuário atual tem permissão para operar na reserva
+     * (seja para check-in, check-out ou outras operações)
+     * 
+     * @param reserva A reserva a ser verificada
+     * @throws BusinessException se o usuário não tiver permissão
+     */
+    private void verificarPermissaoParaOperarReserva(Reserva reserva) {
+        // Obtém o usuário logado
+        Usuarios usuarioLogado = usuarioService.getUsuarioLogado();
+        
+        // Admins podem operar em qualquer reserva
+        if (usuarioLogado.getRole() == Usuarios.Role.ADMIN) {
+            log.debug("Usuário ADMIN com permissão para operar na reserva ID: {}", reserva.getId());
+            return;
+        }
+        
+        // Verifica se é proprietário
+        if (usuarioLogado.getRole() == Usuarios.Role.PROPRIETARIO) {
+            Proprietario proprietario = usuarioService.getProprietarioDoUsuario(usuarioLogado.getId());
+            
+            // Verifica se a casa da reserva pertence ao proprietário
+            if (reserva.getCasa() != null && reserva.getCasa().getProprietario() != null && 
+                reserva.getCasa().getProprietario().getId().equals(proprietario.getId())) {
+                log.debug("Proprietário verificado com permissão para operar na reserva ID: {}", reserva.getId());
+                return;
+            }
+            
+            // Se chegou aqui, é proprietário mas não é dono da casa
+            log.warn("Tentativa de acesso não autorizado: Proprietário ID {} tentou operar na reserva ID {} " +
+                    "de uma casa que não lhe pertence", proprietario.getId(), reserva.getId());
+            throw new BusinessException("Você não tem permissão para operar nesta reserva. " +
+                                       "Apenas o proprietário da casa ou um administrador pode realizar esta operação.");
+        }
+        
+        // Se chegou aqui, não é nem admin nem proprietário
+        log.warn("Tentativa de acesso não autorizado: Usuário {} tentou operar na reserva ID {}", 
+                usuarioLogado.getUsername(), reserva.getId());
+        throw new BusinessException("Apenas proprietários da casa ou administradores podem realizar esta operação.");
     }
 }
