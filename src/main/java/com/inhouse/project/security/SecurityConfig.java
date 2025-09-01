@@ -35,6 +35,9 @@ public class SecurityConfig {
                         // Permissão para swagger-ui e documentação OpenAPI
                         .requestMatchers("/swagger-ui/**").permitAll()
                         .requestMatchers("/v3/api-docs/**").permitAll()
+                        // Endpoints públicos para consulta
+                        .requestMatchers("/api/reservas/disponibilidade").permitAll()
+                        .requestMatchers("/api/hospedes/cpf/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

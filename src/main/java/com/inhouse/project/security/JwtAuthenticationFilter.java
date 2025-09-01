@@ -34,7 +34,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String jwt;
         final String userEmail;
 
+        // Log da requisição para debug
+        logger.debug("Request URI: " + request.getRequestURI());
+        logger.debug("Auth header present: " + (authHeader != null));
+        
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            // Se for uma opção de preflight, continue sem autenticação
+            if (request.getMethod().equals("OPTIONS")) {
+                logger.debug("OPTIONS request detected, skipping authentication");
+            } else if (authHeader == null) {
+                logger.debug("No Authorization header found");
+            } else {
+                logger.debug("Invalid Authorization header format: " + authHeader);
+            }
             filterChain.doFilter(request, response);
             return;
         }
