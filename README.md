@@ -122,7 +122,7 @@ http://localhost:8080/swagger-ui.html
 
 ### Configuração do Banco de Dados
 1. Crie um banco de dados PostgreSQL chamado `sistema_aluguel`
-2. Configure o usuário e senha no arquivo `application.properties`
+2. Configure o usuário e senha no arquivo `application.properties` (veja o exemplo em `application.properties.example`)
 
 ### Execução do Projeto
 ```bash
@@ -137,18 +137,6 @@ Alternativamente, você pode executar diretamente via Maven:
 ```bash
 mvn spring-boot:run
 ```
-
-## 🔒 Variáveis de Ambiente
-
-As seguintes variáveis de ambiente podem ser configuradas:
-
-| Variável                  | Descrição                           | Valor Padrão                          |
-|---------------------------|-------------------------------------|--------------------------------------|
-| `SPRING_DATASOURCE_URL`   | URL do banco de dados              | jdbc:postgresql://localhost:5432/sistema_aluguel |
-| `SPRING_DATASOURCE_USERNAME` | Usuário do banco de dados        | case-test                            |
-| `SPRING_DATASOURCE_PASSWORD` | Senha do banco de dados          | 123                                  |
-| `JWT_SECRET`              | Chave secreta para tokens JWT      | 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970 |
-| `JWT_EXPIRATION`          | Tempo de expiração do token (ms)   | 86400000 (24 horas)                  |
 
 ## 🧪 Testes
 
