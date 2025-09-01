@@ -39,33 +39,33 @@ public class ReservaService {
 
     public Reserva criarReserva(Reserva reserva) {
         validarReserva(reserva);
-        
+
         // Verificar se o usuário logado é o proprietário da casa
         Usuarios usuarioLogado = usuarioService.getUsuarioLogado();
-        log.info("Usuário {} (ID: {}, Role: {}) tentando criar reserva", 
-                 usuarioLogado.getEmail(), usuarioLogado.getId(), usuarioLogado.getRole());
-        
+        log.info("Usuário {} (ID: {}, Role: {}) tentando criar reserva",
+                usuarioLogado.getEmail(), usuarioLogado.getId(), usuarioLogado.getRole());
+
         if (usuarioLogado.getRole() != Usuarios.Role.PROPRIETARIO) {
             log.warn("Tentativa de criar reserva por usuário não-proprietário: {}", usuarioLogado.getEmail());
             throw new BusinessException("Apenas proprietários podem realizar reservas");
         }
-        
+
         // Obter o proprietário do usuário logado
         Proprietario proprietarioLogado = usuarioService.getProprietarioDoUsuario(usuarioLogado.getId());
-        log.info("Proprietário ID: {} vinculado ao usuário ID: {}", 
-                 proprietarioLogado.getId(), usuarioLogado.getId());
-        
+        log.info("Proprietário ID: {} vinculado ao usuário ID: {}",
+                proprietarioLogado.getId(), usuarioLogado.getId());
+
         // Verificar se a casa pertence ao proprietário logado
         if (reserva.getCasa().getProprietario() == null) {
             log.warn("Casa ID: {} não tem proprietário definido", reserva.getCasa().getId());
             throw new BusinessException("Esta casa não possui um proprietário válido");
         }
-        
+
         if (!reserva.getCasa().getProprietario().getId().equals(proprietarioLogado.getId())) {
             log.warn("Usuário {} (proprietário ID: {}) tentando criar reserva para casa ID: {} " +
-                     "que pertence ao proprietário ID: {}", 
-                     usuarioLogado.getEmail(), proprietarioLogado.getId(), 
-                     reserva.getCasa().getId(), reserva.getCasa().getProprietario().getId());
+                    "que pertence ao proprietário ID: {}",
+                    usuarioLogado.getEmail(), proprietarioLogado.getId(),
+                    reserva.getCasa().getId(), reserva.getCasa().getProprietario().getId());
             throw new BusinessException("Você só pode realizar reservas para suas próprias casas");
         }
 
@@ -211,14 +211,14 @@ public class ReservaService {
             throw new BusinessException("Número de hóspedes não pode ser maior que o número de pessoas da reserva");
         }
     }
-    
+
     /**
      * Verifica se uma casa está disponível para o período especificado
      * Este é um endpoint público que pode ser acessado sem autenticação.
      * 
-     * @param casaId ID da casa
+     * @param casaId     ID da casa
      * @param dataInicio Data de início do período
-     * @param dataFim Data de fim do período
+     * @param dataFim    Data de fim do período
      * @return true se a casa estiver disponível, false caso contrário
      */
     public boolean verificarDisponibilidade(Long casaId, LocalDate dataInicio, LocalDate dataFim) {
@@ -227,16 +227,16 @@ public class ReservaService {
             if (casaId == null || dataInicio == null || dataFim == null) {
                 return false;
             }
-            
+
             // Validações de período
             if (dataInicio.isBefore(LocalDate.now())) {
                 return false;
             }
-            
+
             if (dataFim.isBefore(dataInicio) || dataFim.isEqual(dataInicio)) {
                 return false;
             }
-            
+
             try {
                 // Verifica se a casa existe silenciosamente
                 casaService.buscarPorId(casaId);
@@ -245,29 +245,28 @@ public class ReservaService {
                 log.debug("Casa não encontrada ao verificar disponibilidade: {}", casaId);
                 return false;
             }
-        
+
             // Verifica se não há reservas confirmadas ou em check-in para o período
             List<Reserva> reservasExistentes = reservaRepository.findByCasaIdAndStatusIn(
-                casaId,
-                List.of(Reserva.StatusReserva.CONFIRMADA, Reserva.StatusReserva.CHECKIN)
-            );
-            
+                    casaId,
+                    List.of(Reserva.StatusReserva.CONFIRMADA, Reserva.StatusReserva.CHECKIN));
+
             // Verifica se alguma reserva existente se sobrepõe ao período solicitado
             for (Reserva reserva : reservasExistentes) {
                 // Verifica sobreposição de datas
                 if ((dataInicio.isBefore(reserva.getDataCheckout()) || dataInicio.isEqual(reserva.getDataCheckout())) &&
-                    (dataFim.isAfter(reserva.getDataCheckin()) || dataFim.isEqual(reserva.getDataCheckin()))) {
+                        (dataFim.isAfter(reserva.getDataCheckin()) || dataFim.isEqual(reserva.getDataCheckin()))) {
                     return false;
                 }
             }
-            
+
             return true;
         } catch (Exception e) {
             log.error("Erro ao verificar disponibilidade da casa {}: {}", casaId, e.getMessage());
             return false;
         }
     }
-    
+
     /**
      * Verifica se o usuário atual tem permissão para operar na reserva
      * (seja para check-in, check-out ou outras operações)
@@ -278,34 +277,39 @@ public class ReservaService {
     private void verificarPermissaoParaOperarReserva(Reserva reserva) {
         // Obtém o usuário logado
         Usuarios usuarioLogado = usuarioService.getUsuarioLogado();
-        
+
         // Admins podem operar em qualquer reserva
         if (usuarioLogado.getRole() == Usuarios.Role.ADMIN) {
             log.debug("Usuário ADMIN com permissão para operar na reserva ID: {}", reserva.getId());
             return;
         }
-        
+
         // Verifica se é proprietário
         if (usuarioLogado.getRole() == Usuarios.Role.PROPRIETARIO) {
             Proprietario proprietario = usuarioService.getProprietarioDoUsuario(usuarioLogado.getId());
-            
+
             // Verifica se a casa da reserva pertence ao proprietário
-            if (reserva.getCasa() != null && reserva.getCasa().getProprietario() != null && 
-                reserva.getCasa().getProprietario().getId().equals(proprietario.getId())) {
+            if (reserva.getCasa() != null && reserva.getCasa().getProprietario() != null &&
+                    reserva.getCasa().getProprietario().getId().equals(proprietario.getId())) {
                 log.debug("Proprietário verificado com permissão para operar na reserva ID: {}", reserva.getId());
                 return;
             }
-            
+
             // Se chegou aqui, é proprietário mas não é dono da casa
             log.warn("Tentativa de acesso não autorizado: Proprietário ID {} tentou operar na reserva ID {} " +
                     "de uma casa que não lhe pertence", proprietario.getId(), reserva.getId());
             throw new BusinessException("Você não tem permissão para operar nesta reserva. " +
-                                       "Apenas o proprietário da casa ou um administrador pode realizar esta operação.");
+                    "Apenas o proprietário da casa ou um administrador pode realizar esta operação.");
         }
-        
+
         // Se chegou aqui, não é nem admin nem proprietário
-        log.warn("Tentativa de acesso não autorizado: Usuário {} tentou operar na reserva ID {}", 
+        log.warn("Tentativa de acesso não autorizado: Usuário {} tentou operar na reserva ID {}",
                 usuarioLogado.getUsername(), reserva.getId());
         throw new BusinessException("Apenas proprietários da casa ou administradores podem realizar esta operação.");
     }
+
+    public Double getTotalReservasByUser(Long userId) {
+        return reservaRepository.getTotalReservasUltimos30DiasByUserId(userId);
+    }
+
 }
