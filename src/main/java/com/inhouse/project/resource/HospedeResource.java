@@ -23,9 +23,9 @@ import java.util.stream.Collectors;
 @Slf4j
 @Tag(name = "Hóspedes", description = "API para gerenciamento de hóspedes")
 public class HospedeResource {
-    
+
     private final HospedeService hospedeService;
-    
+
     /**
      * Converte DTO para entidade
      */
@@ -44,7 +44,7 @@ public class HospedeResource {
         hospede.setDataNascimento(dto.getDataNascimento());
         return hospede;
     }
-    
+
     /**
      * Converte entidade para DTO
      */
@@ -63,18 +63,20 @@ public class HospedeResource {
         dto.setDataNascimento(hospede.getDataNascimento());
         return dto;
     }
-    
+
     @GetMapping
-    @Operation(summary = "Lista todos os hóspedes")
+    @Operation(summary = "Lista todos os hóspedes do proprietário")
     @ApiResponse(responseCode = "200", description = "Hóspedes listados com sucesso")
-    public ResponseEntity<List<HospedeDTO>> listarTodos() {
-        List<Hospede> hospedes = hospedeService.listarTodos();
+    public ResponseEntity<List<HospedeDTO>> listarTodos(@RequestParam Long proprietarioId) {
+        // Busca apenas os hóspedes associados ao proprietário
+        List<Hospede> hospedes = hospedeService.listarPorProprietario(proprietarioId);
+
         List<HospedeDTO> dtos = hospedes.stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(dtos);
     }
-    
+
     @GetMapping("/{id}")
     @Operation(summary = "Busca um hóspede pelo ID")
     @ApiResponse(responseCode = "200", description = "Hóspede encontrado")
@@ -83,7 +85,7 @@ public class HospedeResource {
         Hospede hospede = hospedeService.buscarPorId(id);
         return ResponseEntity.ok(toDto(hospede));
     }
-    
+
     @GetMapping("/cpf/{cpf}")
     @Operation(summary = "Busca um hóspede pelo CPF")
     @ApiResponse(responseCode = "200", description = "Hóspede encontrado")
@@ -92,32 +94,43 @@ public class HospedeResource {
         Hospede hospede = hospedeService.buscarPorCpf(cpf);
         return ResponseEntity.ok(toDto(hospede));
     }
-    
+
     @PostMapping
-    @Operation(summary = "Cadastra um novo hóspede")
+    @Operation(summary = "Cadastra um novo hóspede e associa ao proprietário")
     @ApiResponse(responseCode = "201", description = "Hóspede cadastrado com sucesso")
     @ApiResponse(responseCode = "400", description = "Dados inválidos")
     @PreAuthorize("hasAnyRole('ADMIN', 'PROPRIETARIO')")
-    public ResponseEntity<HospedeDTO> criar(@Valid @RequestBody HospedeDTO dto) {
-        log.info("Criando novo hóspede com CPF: {}", dto.getCpf());
+    public ResponseEntity<HospedeDTO> criar(
+            @Valid @RequestBody HospedeDTO dto,
+            @RequestParam Long proprietarioId) {
+        log.info("Criando novo hóspede com CPF: {} para o proprietário ID: {}", dto.getCpf(), proprietarioId);
+
         Hospede hospede = toEntity(dto);
-        Hospede hospedeSalvo = hospedeService.salvar(hospede);
+        Hospede hospedeSalvo = hospedeService.salvar(hospede, proprietarioId);
         return ResponseEntity.status(HttpStatus.CREATED).body(toDto(hospedeSalvo));
     }
-    
+
     @PutMapping("/{id}")
     @Operation(summary = "Atualiza um hóspede existente")
     @ApiResponse(responseCode = "200", description = "Hóspede atualizado com sucesso")
     @ApiResponse(responseCode = "404", description = "Hóspede não encontrado")
     @ApiResponse(responseCode = "400", description = "Dados inválidos")
     @PreAuthorize("hasAnyRole('ADMIN', 'PROPRIETARIO')")
-    public ResponseEntity<HospedeDTO> atualizar(@PathVariable Long id, @Valid @RequestBody HospedeDTO dto) {
+    public ResponseEntity<HospedeDTO> atualizar(
+            @PathVariable Long id,
+            @Valid @RequestBody HospedeDTO dto) {
+
         log.info("Atualizando hóspede com ID: {}", id);
+
+        // Converte DTO para entidade
         Hospede hospede = toEntity(dto);
+
+        // Atualiza somente os dados do hóspede, sem mexer nos proprietários
         Hospede hospedeAtualizado = hospedeService.atualizar(id, hospede);
+
         return ResponseEntity.ok(toDto(hospedeAtualizado));
     }
-    
+
     @DeleteMapping("/{id}")
     @Operation(summary = "Remove um hóspede")
     @ApiResponse(responseCode = "204", description = "Hóspede removido com sucesso")
@@ -127,5 +140,11 @@ public class HospedeResource {
         log.info("Excluindo hóspede com ID: {}", id);
         hospedeService.excluir(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/hospedes-count/{proprietarioId}")
+    public ResponseEntity<Long> getTotalHospedesByProprietario(@PathVariable("proprietarioId") Long proprietarioId) {
+        Long totalHospedes = hospedeService.countHospedesByProprietario(proprietarioId);
+        return ResponseEntity.ok(totalHospedes);
     }
 }
