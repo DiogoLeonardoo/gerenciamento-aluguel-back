@@ -66,13 +66,13 @@ public class ReservaResource {
     @PreAuthorize("hasRole('PROPRIETARIO')")
     @PostMapping
     public ResponseEntity<ReservaResponse> criarReserva(@Valid @RequestBody CreateReservaRequest request) {
-        log.info("Proprietário tentando criar reserva para sua casa ID {} e hóspede ID {}", 
-                 request.getCasaId(), request.getHospedePrincipalId());
-        
+        log.info("Proprietário tentando criar reserva para sua casa ID {} e hóspede ID {}",
+                request.getCasaId(), request.getHospedePrincipalId());
+
         Reserva reserva = reservaMapper.toEntity(request);
         Reserva reservaCriada = reservaService.criarReserva(reserva);
         ReservaResponse response = reservaMapper.toResponse(reservaCriada);
-        
+
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -148,19 +148,25 @@ public class ReservaResource {
     }
 
     @GetMapping("/disponibilidade")
-    @io.swagger.v3.oas.annotations.Operation(summary = "Verifica a disponibilidade de uma casa para um período específico",
-        description = "Este endpoint é público e pode ser acessado sem autenticação")
+    @io.swagger.v3.oas.annotations.Operation(summary = "Verifica a disponibilidade de uma casa para um período específico", description = "Este endpoint é público e pode ser acessado sem autenticação")
     public ResponseEntity<DisponibilidadeResponse> verificarDisponibilidade(
             @RequestParam Long casaId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim) {
-        
-        log.info("Verificando disponibilidade para casa ID {} entre {} e {}", 
+
+        log.info("Verificando disponibilidade para casa ID {} entre {} e {}",
                 casaId, dataInicio, dataFim);
-        
+
         boolean disponivel = reservaService.verificarDisponibilidade(casaId, dataInicio, dataFim);
         DisponibilidadeResponse response = new DisponibilidadeResponse(casaId, dataInicio, dataFim, disponivel);
-        
+
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/total-mes-anterior/user/{userId}")
+    public ResponseEntity<Double> getTotalReservasMesAnteriorPorUser(
+            @PathVariable Long userId) {
+        Double total = reservaService.getTotalReservasByUser(userId);
+        return ResponseEntity.ok(total);
     }
 }
