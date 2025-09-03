@@ -312,4 +312,11 @@ public class ReservaService {
         return reservaRepository.getTotalReservasUltimos30DiasByUserId(userId);
     }
 
+    public List<LocalDate> getDiasReservados(Long casaId) {
+    return reservaRepository.findDiasReservadosByCasaIdSql(casaId)
+            .stream()
+            .map(java.sql.Date::toLocalDate)
+            .toList();
+}
+
 }

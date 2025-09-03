@@ -1,5 +1,6 @@
 package com.inhouse.project.security;
 
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,25 +35,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String jwt;
         final String userEmail;
 
-        // Log da requisição para debug
-        logger.debug("Request URI: " + request.getRequestURI());
-        logger.debug("Auth header present: " + (authHeader != null));
-        
+        String requestPath = request.getServletPath();
+
+        if (requestPath.startsWith("/auth/")
+                || requestPath.startsWith("/swagger-ui/")
+                || requestPath.startsWith("/v3/api-docs/")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            // Se for uma opção de preflight, continue sem autenticação
-            if (request.getMethod().equals("OPTIONS")) {
-                logger.debug("OPTIONS request detected, skipping authentication");
-            } else if (authHeader == null) {
-                logger.debug("No Authorization header found");
-            } else {
-                logger.debug("Invalid Authorization header format: " + authHeader);
-            }
             filterChain.doFilter(request, response);
             return;
         }
 
         jwt = authHeader.substring(7);
-        userEmail = jwtService.extractUsername(jwt);
+
+        try {
+            userEmail = jwtService.extractUsername(jwt);
+        } catch (ExpiredJwtException e) {
+            logger.warn("Token expirado para request: " + requestPath);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("Token expirado, faça login novamente.");
+            return;
+        } catch (Exception e) {
+            logger.error("Erro ao processar JWT: " + e.getMessage());
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("Token inválido.");
+            return;
+        }
 
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
@@ -69,6 +80,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         }
+
         filterChain.doFilter(request, response);
     }
 }

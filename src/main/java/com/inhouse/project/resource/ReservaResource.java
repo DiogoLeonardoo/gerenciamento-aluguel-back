@@ -1,9 +1,13 @@
 package com.inhouse.project.resource;
 
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.stereotype.Repository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -168,5 +172,11 @@ public class ReservaResource {
             @PathVariable Long userId) {
         Double total = reservaService.getTotalReservasByUser(userId);
         return ResponseEntity.ok(total);
+    }
+
+     @GetMapping("/dias-reservados/{casaId}")
+    public ResponseEntity<List<LocalDate>> getDiasReservados(@PathVariable Long casaId) {
+        List<LocalDate> diasReservados = reservaService.getDiasReservados(casaId);
+        return ResponseEntity.ok(diasReservados);
     }
 }
