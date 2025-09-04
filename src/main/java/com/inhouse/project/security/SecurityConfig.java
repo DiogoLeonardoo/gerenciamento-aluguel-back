@@ -36,6 +36,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
+                        // Permissão explícita para requisições OPTIONS (CORS preflight) - DEVE SER PRIMEIRO
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/auth/**").permitAll()
                         // Permissão para swagger-ui e documentação OpenAPI
                         .requestMatchers("/swagger-ui/**").permitAll()
@@ -43,8 +45,6 @@ public class SecurityConfig {
                         // Endpoints públicos para consulta
                         .requestMatchers("/api/reservas/disponibilidade").permitAll()
                         .requestMatchers("/api/hospedes/cpf/**").permitAll()
-                        // Permissão explícita para requisições OPTIONS (CORS preflight)
-                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -74,14 +74,36 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(java.util.Arrays.asList(
+
+        // Lista de origens permitidas - incluindo variações para Railway
+        configuration.setAllowedOriginPatterns(java.util.Arrays.asList(
             "http://localhost:3000",
             "http://127.0.0.1:3000",
-            "https://in-house-front-git-dev-diogo-leonardos-projects.vercel.app"
+            "https://in-house-front-git-dev-diogo-leonardos-projects.vercel.app",
+            "https://in-house-front.vercel.app",
+            "https://*.vercel.app",
+            "*"
         ));
-        configuration.setAllowedMethods(java.util.Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(java.util.Arrays.asList("Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"));
-        configuration.setExposedHeaders(java.util.Arrays.asList("Authorization"));
+
+        // Métodos permitidos
+        configuration.setAllowedMethods(java.util.Arrays.asList(
+            "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"
+        ));
+
+        // Headers permitidos
+        configuration.setAllowedHeaders(java.util.Arrays.asList(
+            "Origin", "Content-Type", "Accept", "Authorization",
+            "X-Requested-With", "Access-Control-Request-Method",
+            "Access-Control-Request-Headers", "Cache-Control"
+        ));
+
+        // Headers expostos
+        configuration.setExposedHeaders(java.util.Arrays.asList(
+            "Authorization", "Access-Control-Allow-Origin",
+            "Access-Control-Allow-Credentials"
+        ));
+
+        // Configurações importantes para CORS
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
