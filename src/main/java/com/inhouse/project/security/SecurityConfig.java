@@ -43,6 +43,8 @@ public class SecurityConfig {
                         // Endpoints públicos para consulta
                         .requestMatchers("/api/reservas/disponibilidade").permitAll()
                         .requestMatchers("/api/hospedes/cpf/**").permitAll()
+                        // Permissão explícita para requisições OPTIONS (CORS preflight)
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

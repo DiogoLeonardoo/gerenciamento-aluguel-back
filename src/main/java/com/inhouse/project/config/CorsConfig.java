@@ -9,7 +9,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class CorsConfig {
 
     // CORS agora é gerenciado pelo SecurityConfig
-    // Esta configuração pode ser removida ou mantida como backup
 
     @Bean
     public WebMvcConfigurer corsConfigurer() {
