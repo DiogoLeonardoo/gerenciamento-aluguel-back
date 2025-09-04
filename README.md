@@ -127,6 +127,19 @@ http://localhost:8080/swagger-ui.html
 ### Ambiente de Produção
 O backend está hospedado em: **https://inhouse-back-production.up.railway.app/**
 
+#### Variáveis de Ambiente no Railway
+Configure as seguintes variáveis de ambiente no painel do Railway:
+
+| Variável | Descrição | Exemplo |
+|----------|-----------|---------|
+| `JWT_SECRET` | Chave secreta para tokens JWT | `404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970` |
+| `DATABASE_URL` | URL completa do banco PostgreSQL | `jdbc:postgresql://host:port/database` |
+| `DB_USERNAME` | Usuário do banco de dados | `postgres` |
+| `DB_PASSWORD` | Senha do banco de dados | `sua_senha_aqui` |
+| `PORT` | Porta do servidor (geralmente 8080) | `8080` |
+| `SWAGGER_ENABLED` | Habilitar documentação Swagger (opcional) | `true` |
+| `SWAGGER_UI_ENABLED` | Habilitar interface Swagger UI (opcional) | `true` |
+
 ### Configuração CORS
 O sistema está configurado para aceitar requisições dos seguintes domínios:
 - `http://localhost:3000` (desenvolvimento local)

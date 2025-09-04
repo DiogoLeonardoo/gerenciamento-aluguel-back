@@ -37,3 +37,4 @@ build/
 application.properties
 application-*.properties
 !application.properties.example
+!.env.example
