@@ -14,7 +14,11 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**") // todos os endpoints
-                        .allowedOriginPatterns("http://localhost:3000", "http://127.0.0.1:3000") // origem do front
+                        .allowedOrigins(
+                            "http://localhost:3000",
+                            "http://127.0.0.1:3000",
+                            "https://in-house-front-git-dev-diogo-leonardos-projects.vercel.app"
+                        ) // origens do front (desenvolvimento e produção)
                         .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                         .allowedHeaders("Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With")
                         .exposedHeaders("Authorization")

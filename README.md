@@ -124,6 +124,17 @@ http://localhost:8080/swagger-ui.html
 1. Crie um banco de dados PostgreSQL chamado `sistema_aluguel`
 2. Configure o usuário e senha no arquivo `application.properties` (veja o exemplo em `application.properties.example`)
 
+### Ambiente de Produção
+O backend está hospedado em: **https://inhouse-back-production.up.railway.app/**
+
+### Configuração CORS
+O sistema está configurado para aceitar requisições dos seguintes domínios:
+- `http://localhost:3000` (desenvolvimento local)
+- `http://127.0.0.1:3000` (desenvolvimento local)
+- `https://in-house-front-git-dev-diogo-leonardos-projects.vercel.app` (frontend em produção)
+
+**Nota:** A configuração CORS permite métodos GET, POST, PUT, PATCH, DELETE e OPTIONS, com suporte a credenciais (cookies/tokens).
+
 ### Execução do Projeto
 ```bash
 # Compilar e empacotar o projeto
