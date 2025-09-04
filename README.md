@@ -133,7 +133,7 @@ O sistema está configurado para aceitar requisições dos seguintes domínios:
 - `http://127.0.0.1:3000` (desenvolvimento local)
 - `https://in-house-front-git-dev-diogo-leonardos-projects.vercel.app` (frontend em produção)
 
-**Nota:** A configuração CORS permite métodos GET, POST, PUT, PATCH, DELETE e OPTIONS, com suporte a credenciais (cookies/tokens).
+**Nota:** A configuração CORS é gerenciada diretamente pelo Spring Security (`SecurityConfig.java`) para garantir que as requisições sejam processadas corretamente antes da autenticação. Permite métodos GET, POST, PUT, PATCH, DELETE e OPTIONS, com suporte a credenciais (cookies/tokens).
 
 ### Execução do Projeto
 ```bash
